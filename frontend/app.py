@@ -394,8 +394,8 @@ if not corpus_id:
 st.header("📤 Upload Documents")
 
 uploaded_file = st.file_uploader(
-    "Choose a file (PDF or TXT)",
-    type=["pdf", "txt"],
+    "Choose a file (PDF, TXT, DOCX, or Markdown)",
+    type=["pdf", "txt", "docx", "md"],
     accept_multiple_files=False
 )
 

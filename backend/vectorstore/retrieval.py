@@ -3,13 +3,14 @@ import numpy as np
 from backend.vectorstore.supabase_client import get_connection
 from backend.vectorstore.embeddings import generate_embedding
 
+# Cosine distance ranges 0 (identical) to 2 (opposite). Chunks with distance
+# above this are treated as "not actually relevant" and discarded, even if
+# they were the closest thing available - top-k alone doesn't guarantee
+# relevance, only relative ranking.
+DISTANCE_THRESHOLD = 0.6
 
 def retrieve_chunks(corpus_id: int, query: str, n_results: int = 4):
-    """
-    Embeds the query and finds the n_results closest chunks *within this
-    corpus only*. The corpus_id filter is what keeps corpora isolated from
-    each other - this replaces what a separate ChromaDB collection used to do.
-    """
+
     query_embedding = generate_embedding(query)
 
     conn = get_connection()
@@ -30,7 +31,16 @@ def retrieve_chunks(corpus_id: int, query: str, n_results: int = 4):
     finally:
         conn.close()
 
-    return [
+    results = [
         {"chunk_text": row[0], "page": row[1], "document_id": row[2], "distance": row[3]}
         for row in rows
     ]
+
+    # Debug print while calibrating - shows every candidate and whether it
+    # survives the cutoff, so you can tune DISTANCE_THRESHOLD against your
+    # actual data instead of guessing blindly.
+    for r in results:
+        kept = "KEPT" if r["distance"] <= DISTANCE_THRESHOLD else "DROPPED"
+        print(f"[{kept}] distance={r['distance']:.4f} | {r['chunk_text'][:80]!r}")
+
+    return [r for r in results if r["distance"] <= DISTANCE_THRESHOLD]
