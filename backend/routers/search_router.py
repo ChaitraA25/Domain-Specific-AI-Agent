@@ -9,7 +9,7 @@ from backend.schemas.search_schema import SearchRequest, AnswerResponse
 
 from backend.vectorstore.retrieval import retrieve_chunks
 from backend.services.llm_service import generate_answer
-from backend.services.chat_service import save_chat
+from backend.services.chat_service import save_chat, get_recent_turns_for_prompt
 from backend.services.corpus_service import get_owned_corpus_or_404
 from backend.services.document_service import get_document_by_id
 
@@ -30,8 +30,10 @@ def ask_question(corpus_id: int, request: SearchRequest, db: Session = Depends(g
         save_chat(db=db, user_id=current_user.id, corpus_id=corpus_id, question=request.query, answer=answer)
         return AnswerResponse(answer=answer, sources=[])
 
+    history = get_recent_turns_for_prompt(db, user_id=current_user.id, corpus_id=corpus_id)
+
     context = "\n\n".join(r["chunk_text"] for r in results)
-    answer = generate_answer(question=request.query, context=context)
+    answer = generate_answer(question=request.query, context=context, history=history)
 
     sources = []
     seen = set()

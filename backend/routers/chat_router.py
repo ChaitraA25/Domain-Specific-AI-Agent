@@ -10,7 +10,7 @@ from backend.services.chat_service import get_chat_history
 from backend.services.corpus_service import get_owned_corpus_or_404
 
 router = APIRouter(
-    prefix="/chat",
+    prefix="/corpora/{corpus_id}/chat",
     tags=["Chat"]
 )
 
