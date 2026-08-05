@@ -5,7 +5,7 @@ from backend.database.dependencies import get_db
 
 from backend.schemas.user_schema import UserCreate,UserResponse,UserLogin
 
-from backend.services.user_service import create_user as create_user_service,create_admin_user as create_admin_service,get_user_by_email ,get_user_by_username
+from backend.services.user_service import create_user as create_user_service,get_user_by_email ,get_user_by_username
 
 from backend.auth.security import verify_password
 from backend.auth.jwt_handler import create_access_token
@@ -24,30 +24,6 @@ router = APIRouter(
 def test_db(db: Session = Depends(get_db)):
     return {"message": "Database session created successfully"}
 
-@router.post("/create-admin",response_model=UserResponse)
-def create_admin(user:UserCreate,db:Session = Depends(get_db)):
-    
-    existing_email = get_user_by_email(db,user.email)
-
-    if existing_email:
-        raise HTTPException(
-            status_code=400,
-            detail="Email already registered"
-        )
-
-    existing_username = get_user_by_username(db,user.username)
-
-    if existing_username:
-        raise HTTPException(
-            status_code=400,
-            detail="Username already exists"
-        )
-
-    return create_admin_service(db=db,
-            username=user.username,
-            email=user.email,
-            password=user.password
-        )
 
 @router.post("/",response_model=UserResponse)
 def create_user(user:UserCreate,db:Session = Depends(get_db)):

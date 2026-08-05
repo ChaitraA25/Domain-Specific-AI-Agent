@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class DocumentResponse(BaseModel):
     id: int
     filename:str
+    corpus_id: int
     uploaded_at: datetime
 
     class Config:

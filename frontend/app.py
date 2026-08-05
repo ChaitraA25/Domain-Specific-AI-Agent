@@ -344,85 +344,118 @@ if "token" not in st.session_state:
 # -------------------
 st.success(f"✅ Welcome back, **{st.session_state.get('email', 'User')}**!")
 
-if st.session_state.get("role") == "admin":
-    st.header("📤 Upload Documents")
+# -------------------
+# CORPUS SELECTION
+# -------------------
+st.sidebar.divider()
+st.sidebar.header("Your Corpora")
 
-    uploaded_file = st.file_uploader(
-        "Choose a file (PDF or TXT)",
-        type=["pdf", "txt"],
-        accept_multiple_files=False
+corpora_response = requests.get(
+    f"{BACKEND_URL}/corpora",
+    headers={"Authorization": f"Bearer {st.session_state['token']}"}
+)
+corpora = corpora_response.json() if corpora_response.status_code == 200 else []
+corpus_names = {c["name"]: c["id"] for c in corpora}
+
+if corpus_names:
+    selected_name = st.sidebar.selectbox("Active corpus", list(corpus_names.keys()))
+    corpus_id = corpus_names[selected_name]
+else:
+    st.sidebar.info("You don't have any corpora yet. Create one below.")
+    corpus_id = None
+
+with st.sidebar.expander("➕ New corpus"):
+    new_corpus_name = st.text_input(
+        "Corpus name", key="new_corpus_name",
+        placeholder="e.g. Client A, Thesis Lit Review"
     )
-
-    if uploaded_file:
-        if st.button("Upload Document"):
-            response = requests.post(
-                f"{BACKEND_URL}/documents/upload",
+    if st.button("Create corpus"):
+        if new_corpus_name.strip():
+            create_response = requests.post(
+                f"{BACKEND_URL}/corpora",
                 headers={"Authorization": f"Bearer {st.session_state['token']}"},
-                files={"file": (uploaded_file.name, uploaded_file, uploaded_file.type)}
+                json={"name": new_corpus_name.strip()}
             )
-
-            if response.status_code == 200:
-                st.success("✅ Document uploaded successfully!")
+            if create_response.status_code == 200:
+                st.sidebar.success(f"Corpus '{new_corpus_name}' created!")
+                st.rerun()
             else:
-                st.error(response.text)
-    
-    st.header("📚 Uploaded Documents")
-
-    response = requests.get(
-        f"{BACKEND_URL}/documents",
-        headers={
-            "Authorization":
-            f"Bearer {st.session_state['token']}"
-        }
-    )
-
-    if response.status_code == 200:
-
-        documents = response.json()
-
-        if documents:
-
-            for doc in documents:
-                col1, col2 = st.columns([5, 1])
-
-                with col1:
-                    st.write(f"📄 {doc['filename']}")
-                
-                with col2:
-                    if st.button(
-                        "🗑",
-                        key=f"delete_{doc['id']}"
-                    ):
-                        delete_response = requests.delete(
-                            f"{BACKEND_URL}/documents/{doc['id']}",
-                            headers={
-                                "Authorization":
-                                f"Bearer {st.session_state['token']}"
-                        }
-                        )
-
-                        if delete_response.status_code == 200:
-                            st.success("Document deleted successfully")
-                            st.rerun()
-                        else:
-                            st.error(delete_response.text)
+                st.sidebar.error(create_response.text)
         else:
-            st.info("No documents uploaded yet.")
+            st.sidebar.warning("Enter a name first.")
 
+if not corpus_id:
+    st.warning("Create or select a corpus from the sidebar to get started.")
+    st.stop()
+
+# -------------------
+# UPLOAD SECTION (no longer admin-only - every user manages their own corpora)
+# -------------------
+st.header("📤 Upload Documents")
+
+uploaded_file = st.file_uploader(
+    "Choose a file (PDF or TXT)",
+    type=["pdf", "txt"],
+    accept_multiple_files=False
+)
+
+if uploaded_file:
+    if st.button("Upload Document"):
+        response = requests.post(
+            f"{BACKEND_URL}/corpora/{corpus_id}/documents/upload",
+            headers={"Authorization": f"Bearer {st.session_state['token']}"},
+            files={"file": (uploaded_file.name, uploaded_file, uploaded_file.type)}
+        )
+        if response.status_code == 200:
+            st.success("✅ Document uploaded successfully!")
+        else:
+            st.error(response.text)
+
+st.header("📚 Uploaded Documents")
+
+response = requests.get(
+    f"{BACKEND_URL}/corpora/{corpus_id}/documents",
+    headers={"Authorization": f"Bearer {st.session_state['token']}"}
+)
+
+if response.status_code == 200:
+    documents = response.json()
+
+    if documents:
+        for doc in documents:
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                st.write(f"📄 {doc['filename']}")
+            with col2:
+                if st.button("🗑", key=f"delete_{doc['id']}"):
+                    delete_response = requests.delete(
+                        f"{BACKEND_URL}/corpora/{corpus_id}/documents/{doc['id']}",
+                        headers={"Authorization": f"Bearer {st.session_state['token']}"}
+                    )
+                    if delete_response.status_code == 200:
+                        st.success("Document deleted successfully")
+                        st.rerun()
+                    else:
+                        st.error(delete_response.text)
+    else:
+        st.info("No documents uploaded yet.")
+
+# -------------------
+# ASK SECTION
+# -------------------
 st.header("💬 Ask a Question")
 
 question = st.text_input("What would you like to know?", placeholder="e.g. What is our refund policy?")
 
 if st.button("Ask ✨") and question:
     response = requests.post(
-        f"{BACKEND_URL}/ask",
+        f"{BACKEND_URL}/corpora/{corpus_id}/query",
         headers={"Authorization": f"Bearer {st.session_state['token']}"},
         json={"query": question}
     )
 
     if response.status_code == 200:
         result = response.json()
-
         st.subheader("Answer")
         st.markdown(f'<div class="answer-box">{result["answer"]}</div>', unsafe_allow_html=True)
 
@@ -437,10 +470,13 @@ if st.button("Ask ✨") and question:
 
 st.divider()
 
+# -------------------
+# CHAT HISTORY (now scoped to the active corpus)
+# -------------------
 st.header("🕓 Chat History")
 
 history_response = requests.get(
-    f"{BACKEND_URL}/chat/history",
+    f"{BACKEND_URL}/corpora/{corpus_id}/chat/history",
     headers={"Authorization": f"Bearer {st.session_state['token']}"}
 )
 
