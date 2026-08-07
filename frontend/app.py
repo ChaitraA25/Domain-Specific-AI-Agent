@@ -36,6 +36,7 @@ html, body, [class*="css"] {
     color: #ede9fe !important;
 }
 
+
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3,
