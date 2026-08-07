@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database.db import orm_engine
 from backend.database.db import Base
@@ -16,6 +17,17 @@ app= FastAPI()
 
 # Create all tables when application starts
 Base.metadata.create_all(bind=orm_engine)
+
+# it makes your backend explicitly tell the browser, "It's fine, I trust requests coming from this other website"
+# The frontend lives at something like domain-specific-ai-agent-frontend.onrender.com, and the backend lives at domain-knowledge-copilot-n1yc.onrender.com. 
+# Different domain = different website, from the browser's point of view.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(users_router)
 app.include_router(corpus_router)
